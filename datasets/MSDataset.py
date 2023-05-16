@@ -4,16 +4,12 @@ import torch.utils.data as data
 import numpy as np
 from PIL import Image
 from torchvision.datasets.folder import default_loader
-import torchvision.transforms as transforms
-from PIL import ImageOps
-import sys
-import matplotlib.pyplot as plt
 
 
-def _make_dataset(dir):
+def _make_dataset(dir, patient_name = None):
     images = []
     for root, _, fnames in sorted(os.walk(os.path.join(dir + 'annot'))):
-        #if patient_name == None or root == os.path.join(dir + 'annot', patient_name):
+        if patient_name == None or root == os.path.join(dir + 'annot', patient_name):
             for fname in sorted(fnames):
                 path = os.path.join(root, fname)
                 item = path
@@ -56,7 +52,7 @@ class MSDataset(data.Dataset):
         self.std = std
         self.seq_size = seq_size
         self.sliding_window = sliding_window 
-        self.imgs = _make_dataset(os.path.join(self.root, self.split))
+        self.imgs = _make_dataset(os.path.join(self.root, self.split), patient_name)
 
     def __len__(self):
         if self.sliding_window:

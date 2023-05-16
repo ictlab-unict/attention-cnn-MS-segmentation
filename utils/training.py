@@ -1,34 +1,13 @@
 import os
-import sys
-import math
-import string
-import random
 import shutil
-import time
-import heapq
-
 import torch
 import torch.nn as nn
-import torchvision.transforms as transforms
-from torchvision.utils import save_image
-from torch.autograd import Variable
-from scipy import ndimage as ndi
-import torch.nn.functional as F
-import numpy as np
-from operator import add
-pixels_threshold = 10
-import tensorflow as tf
-import tensorflow.keras.backend as K
-from tensorflow.keras.losses import binary_crossentropy
-import keras.backend as k
 import matplotlib.pyplot as plt
-
-#from . import imgs as img_utils
-#from utils import imgs as img_utils
-import imageio
-from pathlib import Path
-import numpy
 from torchvision.utils import make_grid
+import numpy as np
+from scipy import ndimage as ndi
+from utils import imgs as img_utils
+from torchvision.utils import save_image
 
 def show_batch(dl):
     for images, labels in dl:
@@ -43,8 +22,8 @@ def show_batch(dl):
         plt.show()
         break
 
-def save_weights(model, optim, tag, epoch, loss, err, dice, history_loss_t, history_loss_v, history_accuracy_t, history_accuracy_v, history_DSC, history_sens_v, history_spec_v, weights_path):
-    weights_fname = 'weights-%d-%d.pth' % (tag, epoch)
+def save_weights(model, optim, tag, folder, epoch, loss, err, dice, history_loss_t, history_loss_v, history_accuracy_t, history_accuracy_v, history_DSC, history_sens_v, history_spec_v, weights_path):
+    weights_fname = 'weights-%d-%d-%d.pth' % (tag, folder, epoch)
     weights_fpath = os.path.join(weights_path, weights_fname)
     torch.save({
         'startEpoch': epoch + 1,
@@ -226,3 +205,101 @@ def test(model, test_loader, criterion, seq_size, sliding_window, loss_type = 'd
     ppv = test_tp / (test_tp + test_fp)
     npv= test_tn / (test_tn + test_fn)
     return test_loss, test_error, test_dice, sens, spec, ppv, npv
+
+
+#save slice + ground truth + prediction + FP + FN
+def compute_output(model, test_loader, output_path, seq_size, sliding_window):
+    if sliding_window:
+        curr_seq_size = 1
+        image_idx = seq_size // 2
+    else:
+        curr_seq_size = seq_size
+        image_idx = 0
+    test_tp = 0
+    test_fp = 0
+    test_fn = 0
+    test_tn = 0
+    dice_vector = []
+    for inputs, targets in test_loader:
+        with torch.no_grad():
+            inputs = inputs.cuda()
+            targets = targets.cuda()
+            targets = targets.view(seq_size, targets.size(2), targets.size(3))
+            outputs = model(inputs)[0]
+            inputs = inputs.view(seq_size, inputs.size(2), inputs.size(3), inputs.size(4))
+
+            if sliding_window:
+                seq_window = (seq_size - 1) // 2
+                indices = range(seq_window, outputs.size(0), seq_size)
+                inputs = inputs[indices, :, :, :]
+                outputs = outputs[indices, :, :, :]
+                targets = targets[indices, :, :]
+            pred = get_predictions(outputs)
+            imgs_to_save = [] 
+            for j in range(curr_seq_size):
+                np_pred = pred[j]
+                ejtema= np.zeros((160, 160))
+                notditectedlesion=np.zeros((160, 160))
+                wronglesiondetected=np.zeros((160, 160))
+                b = targets[j] 
+                for i in range(b.shape[0]-1):
+                    for k in range(b.shape[1]-1):
+                        
+                        if b[i,k]==1 or np_pred[i,k]==1:
+                            ejtema[i,k]=1
+                            if b[i,k]==1 and np_pred[i,k]==0:
+                                notditectedlesion[i,k]=1
+                            if b[i,k]==0 and np_pred[i,k]==1:
+                                wronglesiondetected[i,k]=1
+
+                false_negative_mask = torch.from_numpy(ndi.binary_fill_holes(notditectedlesion).astype(int))
+                false_positive_mask = torch.from_numpy(ndi.binary_fill_holes(wronglesiondetected).astype(int))
+
+                imgs_to_save.append(img_utils.normalize(inputs[j].cpu()))
+                t = targets[j].cpu().float().unsqueeze(0)
+                
+                imgs_to_save.append(torch.cat((t, t, t), 0))
+                np_pred = np_pred.float().unsqueeze(0)
+                imgs_to_save.append(torch.cat((np_pred, np_pred, np_pred), 0))
+
+                false_negative_mask = false_negative_mask.float().unsqueeze(0)
+                imgs_to_save.append(torch.cat((false_negative_mask, false_negative_mask, false_negative_mask), 0))
+
+                false_positive_mask = false_positive_mask.float().unsqueeze(0)
+                imgs_to_save.append(torch.cat((false_positive_mask, false_positive_mask, false_positive_mask), 0))
+
+                img_fpath = os.path.join(output_path, str(image_idx) + '.png')
+
+                save_image(imgs_to_save, img_fpath, nrow=5)
+                
+                #save single images
+                output_path_img_separate = str(output_path) + '\separate_imgs'
+                os.makedirs(output_path_img_separate,exist_ok= True)
+
+                save_image(img_utils.normalize(inputs[j].cpu()), os.path.join(output_path_img_separate, str(image_idx) + '_slice.png'))
+                save_image(torch.cat((t, t, t), 0), os.path.join(output_path_img_separate, str(image_idx) + '_ground_truth.png'))
+                save_image(torch.cat((np_pred, np_pred, np_pred), 0), os.path.join(output_path_img_separate, str(image_idx) + '_pred.png'))
+                save_image(torch.cat((false_negative_mask, false_negative_mask, false_negative_mask), 0), os.path.join(output_path_img_separate, str(image_idx) + '_FN.png'))
+                save_image(torch.cat((false_positive_mask, false_positive_mask, false_positive_mask), 0), os.path.join(output_path_img_separate, str(image_idx) + '_FP.png'))
+                
+                image_idx = image_idx + 1
+                
+                tmp_tp, tmp_fp, tmp_fn, tmp_tn = compute_performance(pred[j], targets[j].cpu())
+
+                test_tp += tmp_tp
+                test_fp += tmp_fp
+                test_fn += tmp_fn
+                test_tn += tmp_tn           
+                
+    dsc = dice(test_tp, test_fp, test_fn)
+    sens = test_tp / (test_tp + test_fn)
+    spec = test_tn / (test_tn + test_fp)
+    acc=(test_tp+test_tn)/(test_tp+test_tn+test_fn+test_fp)
+    error=(test_fp+test_fn)/(test_tp+test_tn+test_fn+test_fp) 
+    ppv = test_tp / (test_tp + test_fp)
+    npv= test_tn / (test_tn + test_fn)
+    extra_fraction=(test_fp)/(test_tn+test_fn)
+    iou = test_tp / (test_tp + test_fn + test_fp)
+   
+    return dsc, sens, spec, acc, error, ppv, npv, extra_fraction, iou
+    

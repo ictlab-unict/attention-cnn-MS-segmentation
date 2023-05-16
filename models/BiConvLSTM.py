@@ -1,6 +1,5 @@
 import torch
 from torch import nn
-import torch.nn.functional as f
 from torch.autograd import Variable
 
 class BiConvLSTMCell(nn.Module):

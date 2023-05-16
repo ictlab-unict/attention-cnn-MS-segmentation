@@ -1,13 +1,10 @@
 from pathlib import Path
 import numpy
 import random
-import os, sys
+import os
 import time
-
 import torch
-import torch.nn as nn
 import torchvision.transforms as transforms
-
 from models import tiramisu
 from datasets import MSDataset
 from datasets import joint_transforms
@@ -23,14 +20,13 @@ opt_defs = {}
 opt_defs["n_classes"] = dict(flags = ('-nc', '--nclasses'), info=dict(default=2, type=int, help="num of classes"))
 opt_defs["mean"] = dict(flags = ('-mean', '--mean'), info=dict(default=0.1026, type=float, help="mean for dataset normalization"))
 opt_defs["std"] = dict(flags = ('-std', '--std'), info=dict(default=0.0971, type=float, help="std for dataset normalization"))
-#opt_defs["dataset_path"] = dict(flags = ('-dp', '--dataset-path'), info=dict(default="../dataset/MS_Scan/dataset_T1_Flair", type=str, help="path to dataset"))
-opt_defs["dataset_path"] = dict(flags = ('-dp', '--dataset-path'), info=dict(default="D:/Alessia/2_MS_Project_Gruppo_Imaging/dataset/ISBI_2015/ISBI_2015_PC", type=str, help="path to dataset"))
+#opt_defs["dataset_path"] = dict(flags = ('-dp', '--dataset-path'), info=dict(default="../../dataset/MS_Scan/dataset_Fold2", type=str, help="path to dataset on IPLAB"))
+#opt_defs["dataset_path"] = dict(flags = ('-dp', '--dataset-path'), info=dict(default="./dataset/ISBI_2015", type=str, help="path to dataset"))
+opt_defs["dataset_path"] = dict(flags = ('-dp', '--dataset-path'), info=dict(default="D:/Alessia/2_MS_Project_Gruppo_Imaging/dataset/ISBI_2015/ISBI_2015_PC - Copia", type=str, help="path to dataset on PC"))
 opt_defs["validation_dataset"] = dict(flags = ('-vd','--val-dataset',), info=dict(default='val', type=str, help="val or test"))
 opt_defs["folders"] = dict(flags = ('-f','--folders',), info=dict(default=5, type=int, help="num folders for cross validation"))
 
-
 # Model options
-#opt_defs["path_to_checkpoint"] = dict(flags = ('-ptc', '--path-to-checkpoint'), info=dict(default="", type=str, help="path to a pretrained model checkpoint (for transfer learning)"))
 opt_defs["lstm_kernel_size"] = dict(flags = ('-lstmkernel','--lstm-kernel-size',), info=dict(default=3, type=int, help="lstm kernel size"))
 opt_defs["lstm_num_layers"] = dict(flags = ('-lstmnumlayers','--lstm-num-layers',), info=dict(default=1, type=int, help="lstm kernel size"))
 opt_defs["use_sa"] = dict(flags = ('-usesa', '--use-sa'), info=dict(default=True,  type=bool, help="use Squeeze and Attention blocks (use:True, not use: False)"))
@@ -39,24 +35,22 @@ opt_defs["use_lstm"] = dict(flags = ('-uselstm', '--use-lstm'), info=dict(defaul
 opt_defs["seq_size"] = dict(flags = ('-ss', '--seq-size'), info=dict(default=3, type=int, help="sequence size to test"))
 opt_defs["sliding_window"] = dict(flags = ('-swv', '--sliding-window'), info=dict(default=True,  type=bool, help="sliding window (compute the loss only w.r.t. the central slice in the sequence) to test (use:True, not use: False)"))
 opt_defs["bidirectional"] = dict(flags = ('-bv', '--bidirectional'), info=dict(default=False,  type=bool, help="bidirectional c-lstm to test (use:True, not use: False)"))
-opt_defs["input_dim"] = dict(flags = ('-dim', '--input-dim'), info=dict(default=128, type=int, help="input dim")) #224
-
+opt_defs["input_dim"] = dict(flags = ('-dim', '--input-dim'), info=dict(default=160, type=int, help="input dim")) #224
 
 # Training options
-opt_defs["batch_size"] = dict(flags = ('-b', '--batch-size'), info=dict(default=2, type=int, help="batch size"))
+opt_defs["batch_size"] = dict(flags = ('-b', '--batch-size'), info=dict(default=1, type=int, help="batch size"))
 opt_defs["optim"] = dict(flags = ('-o', '--optim'), info=dict(default="RMSprop", help="optimizer"))
 opt_defs["learning_rate"] = dict(flags = ('-lr', '--learning-rate'), info=dict(default=1e-4, type=float, help="learning rate"))
 opt_defs["learning_rate_decay_by"] = dict(flags = ('-lrdb', '--learning-rate-decay-by'), info=dict(default=0.995, type=float, help="learning rate decay factor"))
 opt_defs["learning_rate_decay_every"] = dict(flags = ('-lrde', '--learning-rate-decay-every'), info=dict(default=10, type=int, help="learning rate decay period"))
 opt_defs["weight_decay"] = dict(flags = ('-wd', '--weight-decay',), info=dict(default=1e-4, type=float, help="weight decay"))
 opt_defs["loss_type"] = dict(flags = ('-lt', '--loss-type'), info=dict(default='dice', type = str, help="the type of loss, i.e. dice"))
-opt_defs["num_epochs"] = dict(flags = ('-ne', '--num-epochs',), info=dict(default=1, type=int, help="training epochs"))
-
+opt_defs["num_epochs"] = dict(flags = ('-ne', '--num-epochs',), info=dict(default=2, type=int, help="training epochs"))
 
 # Checkpoint options
 opt_defs["results_path"] = dict(flags = ('-rp', '--results-path'), info=dict(default="./results_ms/", type=str, help="path to results"))
 opt_defs["weights_path"] = dict(flags = ('-wp', '--weights-path'), info=dict(default="./tiramisu_weights_ms/", type=str, help="path to weights"))
-opt_defs["weights_fname"] = dict(flags = ('-wf', '--weights-fname'), info=dict(default=None, type=str, help="model input dim"))
+opt_defs["weights_fname"] = dict(flags = ('-wf', '--weights-fname'), info=dict(default=None, type=str, help="weights file name, i.e. 'weights-#tag-#folder-#epochs.pth'"))
 opt_defs["last_tag"] = dict(flags = ('-t', '--last-tag'), info=dict(default=0, type=int, help="last checkpoint tag"))
 
 
@@ -77,8 +71,6 @@ DATASET_PATH = Path(opt.dataset_path)
 val_dataset = opt.val_dataset
 folders = opt.folders
 
-
-
 #MODEL OPTIONS
 lstm_kernel_size = opt.lstm_kernel_size
 lstm_num_layers = opt.lstm_num_layers
@@ -89,9 +81,6 @@ seq_size = opt.seq_size
 sliding_window = opt.sliding_window
 bidirectional = opt.bidirectional
 input_dim = opt.input_dim
-
-use_stn = False
-use_lstm = True
 
 # Training options
 batch_size = opt.batch_size
@@ -268,7 +257,7 @@ if __name__ == '__main__':
             if val_dice > max_dice:
                 max_dice = val_dice
                 epoch_max_dice = epoch
-                train_utils.save_weights(model, optimizer, tag, epoch, val_loss, val_err, val_dice, history_loss_train, history_loss_val, history_acc_train, history_acc_val, history_DSC_val, history_sens_val, history_spec_val, WEIGHTS_PATH)
+                train_utils.save_weights(model, optimizer, tag, f, epoch, val_loss, val_err, val_dice, history_loss_train, history_loss_val, history_acc_train, history_acc_val, history_DSC_val, history_sens_val, history_spec_val, WEIGHTS_PATH)
             
             ### Adjust Lr ###
             train_utils.adjust_learning_rate(lr, lr_decay, optimizer,

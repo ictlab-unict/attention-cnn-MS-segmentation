@@ -1,14 +1,9 @@
 from __future__ import division
-from configparser import Interpolation
-import torch
-import math
 import random
-from PIL import Image, ImageOps
+from PIL import Image
 import numpy as np
 import numbers
-import types
 import torchvision.transforms.functional as F
-import sys
 
 class JointScale(object):
     """Rescales the input PIL.Image to the given 'size'.
