@@ -14,6 +14,11 @@ Once you have downloaded the dataset, you must convert the nifti files into imag
 ```bash
   dataset
 └───ISBI_2015
+    ├───test1
+    │   │───Patient1
+    ├───test1annot
+    │   │───Patient1
+    ├───...
     ├───train1
     │   │───P1_T1
     │   │───...
@@ -72,7 +77,7 @@ python train.py
 
 ## Testing
 
-When you have trained a model, please modify the model path, then run the code. You can also change the testing parameters  (refer to test.py).
+When you have trained a model, please modify the model path (--weights-fname), then run the code. You can also change the testing parameters  (refer to test.py).
 ```bash
 python test.py
 ```
