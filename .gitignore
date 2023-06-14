@@ -11,3 +11,6 @@ __pycache__
 .DS_Store
 .DS_Store?
 .Trashes
+
+ISBI_2015
+tiramisu_weights_ms/
