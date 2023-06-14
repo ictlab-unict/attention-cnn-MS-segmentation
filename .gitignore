@@ -1,0 +1,13 @@
+# python and other stuff
+__pycache__
+.vscode
+*.pyc
+*.so
+*.ipynb
+*.ipynb_checkpoints
+
+# MAC stuff
+*.idea/
+.DS_Store
+.DS_Store?
+.Trashes
