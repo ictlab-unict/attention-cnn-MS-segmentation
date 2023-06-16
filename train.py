@@ -20,9 +20,7 @@ opt_defs = {}
 opt_defs["n_classes"] = dict(flags = ('-nc', '--nclasses'), info=dict(default=2, type=int, help="num of classes"))
 opt_defs["mean"] = dict(flags = ('-mean', '--mean'), info=dict(default=0.1026, type=float, help="mean for dataset normalization"))
 opt_defs["std"] = dict(flags = ('-std', '--std'), info=dict(default=0.0971, type=float, help="std for dataset normalization"))
-#opt_defs["dataset_path"] = dict(flags = ('-dp', '--dataset-path'), info=dict(default="../../dataset/MS_Scan/dataset_Fold2", type=str, help="path to dataset on IPLAB"))
-#opt_defs["dataset_path"] = dict(flags = ('-dp', '--dataset-path'), info=dict(default="./dataset/ISBI_2015", type=str, help="path to dataset"))
-opt_defs["dataset_path"] = dict(flags = ('-dp', '--dataset-path'), info=dict(default="D:/Alessia/2_MS_Project_Gruppo_Imaging/dataset/ISBI_2015/ISBI_2015_PC - Copia", type=str, help="path to dataset on PC"))
+opt_defs["dataset_path"] = dict(flags = ('-dp', '--dataset-path'), info=dict(default="./datasets/ISBI_2015", type=str, help="path to dataset"))
 opt_defs["validation_dataset"] = dict(flags = ('-vd','--val-dataset',), info=dict(default='val', type=str, help="val or test"))
 opt_defs["folders"] = dict(flags = ('-f','--folders',), info=dict(default=5, type=int, help="num folders for cross validation"))
 
